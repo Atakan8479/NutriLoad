@@ -29,6 +29,16 @@
 		00ED90412FCA448800099099 /* NutriLoadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NutriLoadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		00ED90922FCA541600099099 /* Exceptions for "Presentations" folder in "NutriLoad" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Dashboard/ViewModels/LogWorkoutViewModel.swift,
+			);
+			target = 00ED90292FCA448500099099 /* NutriLoad */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00ED902C2FCA448500099099 /* NutriLoad */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -62,6 +72,9 @@
 		};
 		00ED90622FCA478400099099 /* Presentations */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				00ED90922FCA541600099099 /* Exceptions for "Presentations" folder in "NutriLoad" target */,
+			);
 			path = Presentations;
 			sourceTree = "<group>";
 		};
