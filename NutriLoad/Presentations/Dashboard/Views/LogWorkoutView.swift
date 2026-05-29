@@ -4,18 +4,71 @@ struct LogWorkoutView: View {
     @ObservedObject var coordinator: AppCoordinator
     @StateObject private var viewModel = LogWorkoutViewModel()
     
+    // Sensör yöneticisini doğrudan arayüze bağlıyoruz
+    @StateObject private var telemetry = SensorTelemetryManager.shared
+    
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Set Detayları").font(.custom("Times New Roman", size: 14))) {
-                    TextField("Ağırlık (kg)", text: $viewModel.weight)
+                // 1. Telemetry & Tracking Section
+                Section(header: Text("Live Telemetry").font(.custom("Times New Roman", size: 14))) {
+                    VStack(spacing: 16) {
+                        HStack {
+                            Text("Form Stability")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                            Spacer()
+                            Text(String(format: "%.1f / 100", telemetry.stabilityScore))
+                                .font(.headline)
+                                .foregroundColor(telemetry.stabilityScore > 80 ? .green : .orange)
+                        }
+                        
+                        // Progress bar for visual stability feedback
+                        ProgressView(value: telemetry.stabilityScore, total: 100)
+                            .progressViewStyle(LinearProgressViewStyle(tint: telemetry.stabilityScore > 80 ? .green : .orange))
+                        
+                        if telemetry.hasAnomaly {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text("Form breakdown detected!")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                            // Küçük bir zıplama animasyonu ile dikkati çek
+                            .transition(.scale)
+                            .animation(.spring(), value: telemetry.hasAnomaly)
+                        }
+                        
+                        Button(action: {
+                            if telemetry.isTracking {
+                                telemetry.stopTracking()
+                            } else {
+                                telemetry.startTracking()
+                            }
+                        }) {
+                            Text(telemetry.isTracking ? "Stop Tracking" : "Start Set Tracking")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(telemetry.isTracking ? Color.red.opacity(0.1) : Color(red: 0.2, green: 0.35, blue: 0.55).opacity(0.1))
+                                .foregroundColor(telemetry.isTracking ? .red : Color(red: 0.2, green: 0.35, blue: 0.55))
+                                .cornerRadius(8)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                
+                // 2. Set Details Section
+                Section(header: Text("Set Details").font(.custom("Times New Roman", size: 14))) {
+                    TextField("Weight (kg)", text: $viewModel.weight)
                         .keyboardType(.decimalPad)
                     
-                    TextField("Tekrar Sayısı", text: $viewModel.reps)
+                    TextField("Reps", text: $viewModel.reps)
                         .keyboardType(.numberPad)
                     
                     HStack {
-                        Text("Zorluk (RPE): \(viewModel.rpe)")
+                        Text("RPE: \(viewModel.rpe)")
                         Spacer()
                         Slider(value: Binding(
                             get: { Double(viewModel.rpe) ?? 8.0 },
@@ -24,10 +77,15 @@ struct LogWorkoutView: View {
                     }
                 }
                 
+                // 3. Save Button
                 Button(action: {
+                    // Kaydederken sensörü de güvenli bir şekilde kapatıyoruz
+                    if telemetry.isTracking {
+                        telemetry.stopTracking()
+                    }
+                    
                     Task {
                         await viewModel.saveWorkout {
-                            // Başarılı kayıttan sonra ana sayfaya geri dön
                             coordinator.navigate(to: .dashboard)
                         }
                     }
@@ -37,7 +95,7 @@ struct LogWorkoutView: View {
                         if viewModel.isSaving {
                             ProgressView()
                         } else {
-                            Text("Antrenmanı Kaydet ve Senkronize Et")
+                            Text("Save & Sync Workout")
                                 .fontWeight(.bold)
                         }
                         Spacer()
@@ -47,13 +105,20 @@ struct LogWorkoutView: View {
                 .listRowBackground(Color(red: 0.2, green: 0.35, blue: 0.55))
                 .foregroundColor(.white)
             }
-            .navigationTitle("Yeni Antrenman")
+            .navigationTitle("New Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("İptal") {
+                    Button("Cancel") {
+                        if telemetry.isTracking { telemetry.stopTracking() }
                         coordinator.navigate(to: .dashboard)
                     }
+                }
+            }
+            .onDisappear {
+                // Sayfa beklenmedik şekilde kapanırsa sensörü kapat (Memory Leak önlemi)
+                if telemetry.isTracking {
+                    telemetry.stopTracking()
                 }
             }
         }
