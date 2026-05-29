@@ -5,7 +5,7 @@
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="targetMuscle" optional="YES" attributeType="String"/>
         <relationship name="sets" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="SetEntity" inverseName="exercise" inverseEntity="SetEntity"/>
-        <relationship name="workout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="WorkouteEntity" inverseName="exercise" inverseEntity="WorkouteEntity"/>
+        <relationship name="workout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="WorkoutEntity" inverseName="exercise" inverseEntity="WorkoutEntity"/>
     </entity>
     <entity name="MealEntity" representedClassName="MealEntity" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -26,9 +26,9 @@
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="syncTimestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="meals" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="MealEntity" inverseName="user" inverseEntity="MealEntity"/>
-        <relationship name="workouts" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="WorkouteEntity" inverseName="user" inverseEntity="WorkouteEntity"/>
+        <relationship name="workouts" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="WorkoutEntity" inverseName="user" inverseEntity="WorkoutEntity"/>
     </entity>
-    <entity name="WorkouteEntity" representedClassName="WorkouteEntity" syncable="YES" codeGenerationType="class">
+    <entity name="WorkoutEntity" representedClassName="WorkoutEntity" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="syncStatus" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
