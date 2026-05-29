@@ -39,6 +39,33 @@ struct DashboardView: View {
                     .cornerRadius(12)
                     .padding(.horizontal)
                     
+                    // AI Recommendation Card
+                    HStack {
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(.yellow)
+                                Text("AI Tonnage Recommendation")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            if viewModel.isLoading {
+                                ProgressView()
+                            } else {
+                                Text("\(viewModel.aiRecommendedTonnage, specifier: "%.0f") kg")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(Color(red: 0.2, green: 0.35, blue: 0.55))
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.yellow.opacity(0.05))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    
                     // Chart Section
                     if !viewModel.recentWorkouts.isEmpty {
                         TonnageChartView(workouts: viewModel.recentWorkouts)
