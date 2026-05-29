@@ -45,6 +45,31 @@
 			path = NutriLoadUITests;
 			sourceTree = "<group>";
 		};
+		00ED90542FCA46EA00099099 /* Application */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Application;
+			sourceTree = "<group>";
+		};
+		00ED905B2FCA474300099099 /* Core */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Core;
+			sourceTree = "<group>";
+		};
+		00ED905F2FCA476900099099 /* Domain */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		00ED90622FCA478400099099 /* Presentations */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Presentations;
+			sourceTree = "<group>";
+		};
+		00ED90672FCA47B700099099 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +100,11 @@
 		00ED90212FCA448500099099 = {
 			isa = PBXGroup;
 			children = (
+				00ED90672FCA47B700099099 /* Resources */,
+				00ED90622FCA478400099099 /* Presentations */,
+				00ED905F2FCA476900099099 /* Domain */,
+				00ED905B2FCA474300099099 /* Core */,
+				00ED90542FCA46EA00099099 /* Application */,
 				00ED902C2FCA448500099099 /* NutriLoad */,
 				00ED903A2FCA448800099099 /* NutriLoadTests */,
 				00ED90442FCA448800099099 /* NutriLoadUITests */,
@@ -109,6 +139,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				00ED902C2FCA448500099099 /* NutriLoad */,
+				00ED90542FCA46EA00099099 /* Application */,
+				00ED905B2FCA474300099099 /* Core */,
+				00ED905F2FCA476900099099 /* Domain */,
+				00ED90622FCA478400099099 /* Presentations */,
+				00ED90672FCA47B700099099 /* Resources */,
 			);
 			name = NutriLoad;
 			packageProductDependencies = (
