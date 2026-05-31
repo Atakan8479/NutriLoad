@@ -1,41 +1,53 @@
 import Foundation
+import CoreData
+
+// Arayüzde kullanılacak öğün tipleri için güvenli Enum yapısı
+enum MealType: String, CaseIterable {
+    case breakfast = "Breakfast"
+    case lunch = "Lunch"
+    case dinner = "Dinner"
+    case snack = "Snack"
+}
 
 @MainActor
 final class LogMealViewModel: ObservableObject {
-    @Published var mealName: String = ""
-    @Published var proteinAmount: String = ""
+    // Kullanıcıdan alınacak girdiler
+    @Published var name: String = ""
+    @Published var protein: String = ""
+    @Published var calories: String = ""
+    @Published var selectedMealType: MealType = .breakfast // Seçilen öğün tipi
     @Published var isSaving: Bool = false
     
-    // Gerçek senaryoda MealRepositoryProtocol üzerinden soyutlanmalıdır
-    private let coreDataManager = CoreDataManager.shared
+    // Core Data Context
+    private let context = CoreDataManager.shared.viewContext
     
-    func saveMeal(completion: @escaping () -> Void) async {
-        guard let proteinVal = Double(proteinAmount), !mealName.isEmpty else { return }
+    func saveMeal(completion: @escaping () -> Void) {
+        // Girdilerin doğruluğunu kontrol et (Validation)
+        guard let proteinVal = Double(protein),
+              let caloriesVal = Double(calories),
+              !name.isEmpty else {
+            return
+        }
         
         isSaving = true
-        let context = coreDataManager.newBackgroundContext()
+        
+        // Yeni FoodItemEntity oluşturma
+        let newFood = FoodItemEntity(context: context)
+        newFood.id = UUID()
+        newFood.name = name
+        newFood.protein = proteinVal
+        newFood.calories = caloriesVal
+        newFood.date = Date()
+        
+        // İŞTE ÇÖZÜM: Enum'ın arkasındaki String değeri veri tabanına yazıyoruz
+        newFood.meal = selectedMealType.rawValue
         
         do {
-            try await context.perform {
-                let newMeal = MealEntity(context: context)
-                newMeal.id = UUID()
-                newMeal.date = Date()
-                newMeal.totalProtein = proteinVal
-                newMeal.syncStatus = 0 // Offline-first pending status
-                
-                let foodItem = FoodItemEntity(context: context)
-                foodItem.id = UUID()
-                foodItem.name = self.mealName
-                foodItem.protein = proteinVal
-                foodItem.meal = newMeal
-                
-                self.coreDataManager.saveContext(context)
-            }
-            
+            try context.save()
             isSaving = false
-            completion()
+            completion() // Başarıyla kaydedildiğinde ekranı kapatmak için
         } catch {
-            print("Failed to save meal: \(error)")
+            print("Failed to log meal: \(error)")
             isSaving = false
         }
     }

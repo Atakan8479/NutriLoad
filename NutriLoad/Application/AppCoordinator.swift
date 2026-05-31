@@ -1,20 +1,24 @@
 import SwiftUI
 
-// Uygulama içindeki tüm olası sayfalarımız
-enum AppRoute {
+// Uygulama içi rotalarımız
+enum AppRoute: Hashable {
     case dashboard
     case logWorkout
     case logMeal
 }
 
-// Tüm geçişleri yönetecek merkezi sınıfımız
+@MainActor
 final class AppCoordinator: ObservableObject {
-    @Published var currentRoute: AppRoute = .dashboard
+    // NavigationStack'in takip edeceği dinamik yol
+    @Published var path = NavigationPath()
     
+    // Yeni bir sayfaya gitmek için
     func navigate(to route: AppRoute) {
-        // Ekran güncellemelerinin kesinlikle Main Thread'de yapılmasını garanti ediyoruz
-        DispatchQueue.main.async {
-            self.currentRoute = route
-        }
+        path.append(route)
+    }
+    
+    // Ana sayfaya (Root) dönmek için
+    func popToRoot() {
+        path.removeLast(path.count)
     }
 }

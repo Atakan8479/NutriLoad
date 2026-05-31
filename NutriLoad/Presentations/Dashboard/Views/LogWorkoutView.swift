@@ -1,126 +1,131 @@
 import SwiftUI
+import CoreData
 
 struct LogWorkoutView: View {
     @ObservedObject var coordinator: AppCoordinator
-    @StateObject private var viewModel = LogWorkoutViewModel()
+    @Environment(\.managedObjectContext) private var viewContext
     
-    // Sensör yöneticisini doğrudan arayüze bağlıyoruz
-    @StateObject private var telemetry = SensorTelemetryManager.shared
+    @State private var searchText = ""
+    @State private var selectedMuscle = "All"
+    @State private var selectedExercise: ExerciseTemplate? // Detay ekranı için tetikleyici
+    
+    let exerciseManager = LocalExerciseManager.shared
+    
+    var muscleGroups: [String] {
+        let allGroups = exerciseManager.allExercises.map { $0.mainMuscle }
+        let uniqueGroups = Array(Set(allGroups)).sorted()
+        return ["All"] + uniqueGroups
+    }
+    
+    var filteredExercises: [ExerciseTemplate] {
+        exerciseManager.search(query: searchText, muscleGroup: selectedMuscle)
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Muscle Group", selection: $selectedMuscle) {
+                ForEach(muscleGroups, id: \.self) { group in
+                    Text(group).tag(group)
+                }
+            }
+            .pickerStyle(.menu)
+            .padding()
+            .background(Color(UIColor.systemBackground))
+            
+            List(filteredExercises) { exercise in
+                Button(action: {
+                    // Artık direkt kaydetmiyoruz, detay ekranını açıyoruz
+                    selectedExercise = exercise
+                }) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(exercise.name)
+                            .font(.headline)
+                        HStack {
+                            Label(exercise.mainMuscle, systemImage: "figure.strengthtraining.traditional")
+                            Spacer()
+                            Label(exercise.safeEquipment, systemImage: "dumbbell.fill")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .listStyle(.plain)
+            .searchable(text: $searchText, prompt: "Search exercises...")
+        }
+        .navigationTitle("Add Exercise")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel") { coordinator.navigate(to: .dashboard) }
+            }
+        }
+        // SEÇİLEN HAREKET İÇİN DETAY EKRANI (SHEET)
+        .sheet(item: $selectedExercise) { exercise in
+            ExerciseDetailSheet(
+                exercise: exercise,
+                viewContext: viewContext,
+                coordinator: coordinator
+            )
+        }
+    }
+}
+
+// MARK: - DETAY EKRANI (Set, Reps, Weight)
+struct ExerciseDetailSheet: View {
+    let exercise: ExerciseTemplate
+    var viewContext: NSManagedObjectContext
+    var coordinator: AppCoordinator
+    
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var sets: String = "3"
+    @State private var reps: String = "10"
+    @State private var weight: String = "0"
     
     var body: some View {
         NavigationView {
             Form {
-                // 1. Telemetry & Tracking Section
-                Section(header: Text("Live Telemetry").font(.custom("Times New Roman", size: 14))) {
-                    VStack(spacing: 16) {
-                        HStack {
-                            Text("Form Stability")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Spacer()
-                            Text(String(format: "%.1f / 100", telemetry.stabilityScore))
-                                .font(.headline)
-                                .foregroundColor(telemetry.stabilityScore > 80 ? .green : .orange)
-                        }
-                        
-                        // Progress bar for visual stability feedback
-                        ProgressView(value: telemetry.stabilityScore, total: 100)
-                            .progressViewStyle(LinearProgressViewStyle(tint: telemetry.stabilityScore > 80 ? .green : .orange))
-                        
-                        if telemetry.hasAnomaly {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                Text("Form breakdown detected!")
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                            }
-                            // Küçük bir zıplama animasyonu ile dikkati çek
-                            .transition(.scale)
-                            .animation(.spring(), value: telemetry.hasAnomaly)
-                        }
-                        
-                        Button(action: {
-                            if telemetry.isTracking {
-                                telemetry.stopTracking()
-                            } else {
-                                telemetry.startTracking()
-                            }
-                        }) {
-                            Text(telemetry.isTracking ? "Stop Tracking" : "Start Set Tracking")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(telemetry.isTracking ? Color.red.opacity(0.1) : Color(red: 0.2, green: 0.35, blue: 0.55).opacity(0.1))
-                                .foregroundColor(telemetry.isTracking ? .red : Color(red: 0.2, green: 0.35, blue: 0.55))
-                                .cornerRadius(8)
-                        }
-                    }
-                    .padding(.vertical, 8)
+                Section(header: Text("WORKOUT METRICS")) {
+                    TextField("Sets", text: $sets).keyboardType(.numberPad)
+                    TextField("Reps", text: $reps).keyboardType(.numberPad)
+                    TextField("Weight (kg)", text: $weight).keyboardType(.decimalPad)
                 }
-                
-                // 2. Set Details Section
-                Section(header: Text("Set Details").font(.custom("Times New Roman", size: 14))) {
-                    TextField("Weight (kg)", text: $viewModel.weight)
-                        .keyboardType(.decimalPad)
-                    
-                    TextField("Reps", text: $viewModel.reps)
-                        .keyboardType(.numberPad)
-                    
-                    HStack {
-                        Text("RPE: \(viewModel.rpe)")
-                        Spacer()
-                        Slider(value: Binding(
-                            get: { Double(viewModel.rpe) ?? 8.0 },
-                            set: { viewModel.rpe = String(format: "%.1f", $0) }
-                        ), in: 1...10, step: 0.5)
-                    }
-                }
-                
-                // 3. Save Button
-                Button(action: {
-                    // Kaydederken sensörü de güvenli bir şekilde kapatıyoruz
-                    if telemetry.isTracking {
-                        telemetry.stopTracking()
-                    }
-                    
-                    Task {
-                        await viewModel.saveWorkout {
-                            coordinator.navigate(to: .dashboard)
-                        }
-                    }
-                }) {
-                    HStack {
-                        Spacer()
-                        if viewModel.isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save & Sync Workout")
-                                .fontWeight(.bold)
-                        }
-                        Spacer()
-                    }
-                }
-                .disabled(viewModel.weight.isEmpty || viewModel.reps.isEmpty || viewModel.isSaving)
-                .listRowBackground(Color(red: 0.2, green: 0.35, blue: 0.55))
-                .foregroundColor(.white)
             }
-            .navigationTitle("New Workout")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(exercise.name)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        if telemetry.isTracking { telemetry.stopTracking() }
-                        coordinator.navigate(to: .dashboard)
-                    }
+                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { saveExerciseWithDetails() }.fontWeight(.bold)
                 }
             }
-            .onDisappear {
-                // Sayfa beklenmedik şekilde kapanırsa sensörü kapat (Memory Leak önlemi)
-                if telemetry.isTracking {
-                    telemetry.stopTracking()
-                }
-            }
+        }
+    }
+    
+    private func saveExerciseWithDetails() {
+        let newWorkout = WorkoutEntity(context: viewContext)
+        newWorkout.id = UUID()
+        newWorkout.date = Date()
+        
+        let newExercise = ExerciseEntity(context: viewContext)
+        newExercise.id = UUID()
+        newExercise.name = exercise.name
+        newExercise.workout = newWorkout
+        
+        let newSet = SetEntity(context: viewContext)
+        newSet.id = UUID()
+        newSet.sets = Int16(sets) ?? 0
+        newSet.reps = Int16(reps) ?? 0
+        newSet.weight = Double(weight.replacingOccurrences(of: ",", with: ".")) ?? 0.0
+        newSet.exercise = newExercise // İLİŞKİ KURULDU
+        
+        do {
+            try viewContext.save()
+            dismiss()
+            coordinator.navigate(to: .dashboard)
+        } catch {
+            print("❌ KAYIT HATASI: \(error)")
         }
     }
 }
