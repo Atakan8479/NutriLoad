@@ -11,8 +11,9 @@ struct LogWorkoutView: View {
     
     let exerciseManager = LocalExerciseManager.shared
     
+    // HATA BURADAYDI: Artık "exercises" olarak doğru şekilde çağırılıyor.
     var muscleGroups: [String] {
-        let allGroups = exerciseManager.allExercises.map { $0.mainMuscle }
+        let allGroups = exerciseManager.exercises.map { $0.mainMuscle }
         let uniqueGroups = Array(Set(allGroups)).sorted()
         return ["All"] + uniqueGroups
     }
@@ -34,7 +35,7 @@ struct LogWorkoutView: View {
             
             List(filteredExercises) { exercise in
                 Button(action: {
-                    // Artık direkt kaydetmiyoruz, detay ekranını açıyoruz
+                    // Artık direkt kaydetmiyoruz, detay ekranını (çoklu set) açıyoruz
                     selectedExercise = exercise
                 }) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -72,7 +73,7 @@ struct LogWorkoutView: View {
     }
 }
 
-// MARK: - DETAY EKRANI (Set, Reps, Weight)
+// MARK: - DETAY EKRANI (Çoklu Set Desteği)
 struct ExerciseDetailSheet: View {
     let exercise: ExerciseTemplate
     var viewContext: NSManagedObjectContext
@@ -80,30 +81,93 @@ struct ExerciseDetailSheet: View {
     
     @Environment(\.dismiss) var dismiss
     
-    @State private var sets: String = "3"
-    @State private var reps: String = "10"
-    @State private var weight: String = "0"
+    // UI'da listelemek için geçici bir yapı
+    struct TempSet: Identifiable {
+        let id = UUID()
+        var reps: String = ""
+        var weight: String = ""
+    }
+    
+    // Uygulama her zaman en az 1 set satırı ile başlar
+    @State private var loggedSets: [TempSet] = [TempSet()]
     
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("WORKOUT METRICS")) {
-                    TextField("Sets", text: $sets).keyboardType(.numberPad)
-                    TextField("Reps", text: $reps).keyboardType(.numberPad)
-                    TextField("Weight (kg)", text: $weight).keyboardType(.decimalPad)
+                Section(header: Text("LOG SETS")) {
+                    // Dinamik Set Listesi
+                    ForEach(loggedSets.indices, id: \.self) { index in
+                        HStack {
+                            Text("Set \(index + 1)")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .frame(width: 50, alignment: .leading)
+                            
+                            TextField("kg", text: $loggedSets[index].weight)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .padding(8)
+                                .background(Color(UIColor.secondarySystemBackground))
+                                .cornerRadius(8)
+                            
+                            Text("x")
+                                .foregroundColor(.secondary)
+                            
+                            TextField("reps", text: $loggedSets[index].reps)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .padding(8)
+                                .background(Color(UIColor.secondarySystemBackground))
+                                .cornerRadius(8)
+                            
+                            // 1'den fazla set varsa silme butonu göster
+                            if loggedSets.count > 1 {
+                                Button(action: {
+                                    loggedSets.remove(at: index)
+                                }) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .padding(.leading, 4)
+                            }
+                        }
+                    }
+                }
+                
+                // Yeni Set Ekleme Butonu
+                Section {
+                    Button(action: {
+                        // Yeni set ekle (Bir önceki setin değerlerini kopyalar)
+                        let lastSet = loggedSets.last
+                        loggedSets.append(TempSet(reps: lastSet?.reps ?? "", weight: lastSet?.weight ?? ""))
+                    }) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add Set")
+                            Spacer()
+                        }
+                        .foregroundColor(.blue)
+                        .fontWeight(.bold)
+                    }
                 }
             }
             .navigationTitle(exercise.name)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { saveExerciseWithDetails() }.fontWeight(.bold)
+                    Button("Save") { saveExerciseWithMultipleSets() }
+                        .fontWeight(.bold)
+                        .disabled(loggedSets.isEmpty || loggedSets.allSatisfy { $0.reps.isEmpty && $0.weight.isEmpty })
                 }
             }
         }
     }
     
-    private func saveExerciseWithDetails() {
+    private func saveExerciseWithMultipleSets() {
         let newWorkout = WorkoutEntity(context: viewContext)
         newWorkout.id = UUID()
         newWorkout.date = Date()
@@ -113,12 +177,18 @@ struct ExerciseDetailSheet: View {
         newExercise.name = exercise.name
         newExercise.workout = newWorkout
         
-        let newSet = SetEntity(context: viewContext)
-        newSet.id = UUID()
-        newSet.sets = Int16(sets) ?? 0
-        newSet.reps = Int16(reps) ?? 0
-        newSet.weight = Double(weight.replacingOccurrences(of: ",", with: ".")) ?? 0.0
-        newSet.exercise = newExercise // İLİŞKİ KURULDU
+        for tempSet in loggedSets {
+            guard let repsVal = Int16(tempSet.reps), let weightVal = Double(tempSet.weight.replacingOccurrences(of: ",", with: ".")) else {
+                continue
+            }
+            
+            let coreDataSet = SetEntity(context: viewContext)
+            coreDataSet.id = UUID()
+            coreDataSet.sets = 1
+            coreDataSet.reps = repsVal
+            coreDataSet.weight = weightVal
+            coreDataSet.exercise = newExercise
+        }
         
         do {
             try viewContext.save()

@@ -16,6 +16,10 @@ struct CoordinatorView: View {
                         LogWorkoutView(coordinator: coordinator)
                     case .logMeal:
                         LogMealView(coordinator: coordinator) // LogMealView'in önceden oluşturulmuş olduğundan emin ol
+                    case .editMeal(let food):
+                        EditMealView(food: food)
+                    case .editWorkout(let exercise):
+                        EditWorkoutView(exercise: exercise)
                     }
                 }
         }

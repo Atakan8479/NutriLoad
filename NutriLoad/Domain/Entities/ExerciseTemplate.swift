@@ -32,7 +32,7 @@ struct ExerciseTemplate: Identifiable, Decodable, Hashable {
         self.instructions = try? container.decodeIfPresent([String].self, forKey: .instructions)
     }
     
-    // UI için Köprü Değişkenler
+    // MARK: - UI için Köprü Değişkenler
     var mainMuscle: String {
         primaryMuscles.first?.capitalized ?? "Other"
     }

@@ -13,13 +13,16 @@ struct LogMealView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     
-    // Kullanıcının seçeceği öğün tipi (Önceki adımdan gelen enum)
+    // Kullanıcının seçeceği öğün tipi
     @State private var selectedMealType: MealType = .breakfast
+    
+    // YENİ: Seçilen ürünü detay ekranına taşımak için state
+    @State private var selectedProduct: OFFProduct? = nil
     
     var body: some View {
         VStack(spacing: 0) {
             
-            // 1. Öğün Tipi Seçici (Segmented Control)
+            // 1. Öğün Tipi Seçici
             Picker("Meal Type", selection: $selectedMealType) {
                 ForEach(MealType.allCases, id: \.self) { meal in
                     Text(meal.rawValue).tag(meal)
@@ -46,8 +49,8 @@ struct LogMealView: View {
                 // 3. Arama Sonuçları Listesi
                 List(searchResults) { product in
                     Button(action: {
-                        // Tıklanan yemeği Core Data'ya kaydet
-                        saveFoodToCoreData(product: product)
+                        // DİREKT KAYDETMEK YERİNE ÜRÜNÜ SEÇ VE SHEET AÇ
+                        selectedProduct = product
                     }) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(product.productName ?? "Unknown Food")
@@ -55,11 +58,9 @@ struct LogMealView: View {
                                 .foregroundColor(.primary)
                             
                             HStack {
-                                // Kalori formatlama (virgülden sonra 1 hane)
                                 Label(String(format: "%.1f kcal", product.nutriments?.energyKcal100g ?? 0), systemImage: "flame.fill")
                                     .foregroundColor(.orange)
                                 Spacer()
-                                // Protein formatlama
                                 Label(String(format: "%.1f g Protein", product.nutriments?.proteins100g ?? 0), systemImage: "bolt.fill")
                                     .foregroundColor(.green)
                             }
@@ -74,9 +75,7 @@ struct LogMealView: View {
         }
         .navigationTitle("Log Food")
         .navigationBarTitleDisplayMode(.inline)
-        // SwiftUI'ın yerleşik arama çubuğu
         .searchable(text: $searchText, prompt: "Search food (e.g. Oats, Chicken)...")
-        // Kullanıcı klavyede "Ara/Enter" tuşuna bastığında tetiklenir
         .onSubmit(of: .search) {
             performSearch()
         }
@@ -86,6 +85,17 @@ struct LogMealView: View {
                     coordinator.navigate(to: .dashboard)
                 }
             }
+        }
+        // YENİ: Yiyecek seçildiğinde açılacak Porsiyon (Gramaj) Ekranı
+        .sheet(item: $selectedProduct) { product in
+            FoodPortionSheet(
+                product: product,
+                selectedMealType: selectedMealType,
+                viewContext: viewContext,
+                onSave: {
+                    coordinator.navigate(to: .dashboard) // Kayıttan sonra ana ekrana dön
+                }
+            )
         }
     }
     
@@ -97,13 +107,10 @@ struct LogMealView: View {
         errorMessage = nil
         searchResults = []
         
-        // async/await yapısını SwiftUI arayüzünde kullanabilmek için Task bloğu açıyoruz
         Task {
             do {
-                // İnternetten veriyi çek (Thread'i dondurmaz)
                 let results = try await FoodNetworkManager.shared.searchFood(query: searchText)
                 
-                // Arayüz güncellemeleri ana thread'de (MainActor) yapılmalıdır
                 await MainActor.run {
                     self.searchResults = results
                     self.isLoading = false
@@ -120,23 +127,101 @@ struct LogMealView: View {
             }
         }
     }
+}
+
+// YENİ BİLEŞEN: Gramaj Girme ve Dinamik Hesaplama Ekranı (Bottom Sheet)
+struct FoodPortionSheet: View {
+    let product: OFFProduct
+    let selectedMealType: MealType
+    let viewContext: NSManagedObjectContext
     
-    // MARK: - Core Data Kayıt İşlemi
-    private func saveFoodToCoreData(product: OFFProduct) {
-        let newFood = FoodItemEntity(context: viewContext)
-        newFood.id = UUID()
-        newFood.date = Date()
-        newFood.name = product.productName ?? "Unknown Food"
-        newFood.meal = selectedMealType.rawValue
+    // YENİ: Varsa günceller (Edit), yoksa nil kalır ve yeni oluşturur (Log)
+    var existingFood: FoodItemEntity? = nil
+    
+    let onSave: () -> Void
+    
+    @Environment(\.dismiss) var dismiss
+    @State private var amountString: String = ""
+    
+    var baseCalories: Double { product.nutriments?.energyKcal100g ?? 0.0 }
+    var baseProtein: Double { product.nutriments?.proteins100g ?? 0.0 }
+    
+    var calculatedCalories: Double {
+        let amount = Double(amountString) ?? 0.0
+        return (baseCalories / 100.0) * amount
+    }
+    var calculatedProtein: Double {
+        let amount = Double(amountString) ?? 0.0
+        return (baseProtein / 100.0) * amount
+    }
+    
+    var body: some View {
+        // ... (Arayüz kodların aynı kalacak, sadece saveCalculatedFood fonksiyonu değişecek)
+        NavigationView {
+            Form {
+                Section(header: Text("Food Info (per 100g)")) {
+                    Text(product.productName ?? "Unknown Food").font(.headline)
+                    HStack {
+                        Text("\(String(format: "%.1f", baseCalories)) kcal")
+                        Spacer()
+                        Text("\(String(format: "%.1f", baseProtein)) g Protein")
+                    }
+                    .font(.caption).foregroundColor(.secondary)
+                }
+                
+                Section(header: Text("How much did you eat?")) {
+                    HStack {
+                        TextField("Amount (e.g. 250)", text: $amountString)
+                            .keyboardType(.decimalPad)
+                        Text("grams / ml").foregroundColor(.secondary)
+                    }
+                }
+                
+                Section(header: Text("Calculated Macros")) {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text("Calories").font(.caption).foregroundColor(.secondary)
+                            Text("\(Int(calculatedCalories)) kcal").font(.title3).foregroundColor(.orange).fontWeight(.bold)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text("Protein").font(.caption).foregroundColor(.secondary)
+                            Text("\(String(format: "%.1f", calculatedProtein)) g").font(.title3).foregroundColor(.green).fontWeight(.bold)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Log Portion")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { saveCalculatedFood() }
+                    .fontWeight(.bold)
+                    .disabled(amountString.isEmpty || (Double(amountString) ?? 0) <= 0)
+                }
+            }
+        }
+    }
+    
+    private func saveCalculatedFood() {
+        // İŞTE SİHİR BURADA: Varsa eskisini kullan, yoksa yeni yarat
+        let foodToSave = existingFood ?? FoodItemEntity(context: viewContext)
         
-        // API'den null (nil) gelirse, varsayılan olarak 0.0 değerini ata
-        newFood.calories = product.nutriments?.energyKcal100g ?? 0.0
-        newFood.protein = product.nutriments?.proteins100g ?? 0.0
+        if existingFood == nil {
+            foodToSave.id = UUID()
+            foodToSave.date = Date()
+        }
+        
+        foodToSave.name = product.productName ?? "Unknown Food"
+        foodToSave.meal = selectedMealType.rawValue
+        foodToSave.calories = calculatedCalories
+        foodToSave.protein = calculatedProtein
         
         do {
             try viewContext.save()
-            print("✅ BAŞARILI: '\(newFood.name ?? "")' Core Data'ya eklendi.")
-            coordinator.navigate(to: .dashboard) // Ana ekrana dön
+            dismiss()
+            onSave()
         } catch {
             print("❌ KAYIT HATASI: \(error.localizedDescription)")
         }

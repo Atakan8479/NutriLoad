@@ -3,7 +3,8 @@ import Foundation
 final class LocalExerciseManager {
     static let shared = LocalExerciseManager()
     
-    private(set) var allExercises: [ExerciseTemplate] = []
+    // EditWorkoutView'da "exercises" olarak çağırdığımız için ismini eşitledik
+    private(set) var exercises: [ExerciseTemplate] = []
     
     private init() {
         loadAllJSONFiles()
@@ -29,7 +30,7 @@ final class LocalExerciseManager {
             do {
                 let data = try Data(contentsOf: url)
                 
-                // Önce: Dosya TEK BİR HAREKET içeriyorsa (Senin ekran görüntüsündeki gibi)
+                // Önce: Dosya TEK BİR HAREKET içeriyorsa
                 if let singleExercise = try? decoder.decode(ExerciseTemplate.self, from: data) {
                     loadedExercises.append(singleExercise)
                 }
@@ -43,23 +44,24 @@ final class LocalExerciseManager {
         }
         
         // Tüm hareketleri isme göre A'dan Z'ye sıralayıp RAM'e kaydet
-        self.allExercises = loadedExercises.sorted { $0.name < $1.name }
+        self.exercises = loadedExercises.sorted { $0.name < $1.name }
         
-        print("✅ BAŞARILI: Klasörden \(allExercises.count) hareket RAM'e yüklendi!")
+        print("✅ BAŞARILI: Klasörden \(exercises.count) hareket RAM'e yüklendi!")
     }
     
     // Arayüz için Arama / Filtreleme
-    func search(query: String, muscleGroup: String? = nil) -> [ExerciseTemplate] {
-        var results = allExercises
-        
-        if let muscle = muscleGroup, muscle != "All" {
-            results = results.filter { $0.mainMuscle.lowercased() == muscle.lowercased() }
+        func search(query: String, muscleGroup: String? = nil) -> [ExerciseTemplate] {
+            var results = exercises
+            
+            // HATA VEREN SATIR DÜZELTİLDİ: displayCategory yerine mainMuscle kullanıyoruz
+            if let muscle = muscleGroup, muscle != "All" {
+                results = results.filter { $0.mainMuscle.lowercased() == muscle.lowercased() }
+            }
+            
+            if !query.isEmpty {
+                results = results.filter { $0.name.lowercased().contains(query.lowercased()) }
+            }
+            
+            return results
         }
-        
-        if !query.isEmpty {
-            results = results.filter { $0.name.lowercased().contains(query.lowercased()) }
-        }
-        
-        return results
-    }
 }

@@ -17,7 +17,7 @@ final class FoodNetworkManager {
     func searchFood(query: String) async throws -> [OFFProduct] {
         // 1. Kullanıcının yazdığı metindeki boşlukları (örn: "oat meal") URL formatına (%20) çevir
         guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://world.openfoodfacts.org/cgi/search.pl?search_terms=\(encodedQuery)&search_simple=1&action=process&json=1") else {
+              let url = URL(string: "https://tr.openfoodfacts.org/cgi/search.pl?search_terms=\(encodedQuery)&search_simple=1&action=process&json=1") else {
             throw FoodNetworkError.invalidURL
         }
         

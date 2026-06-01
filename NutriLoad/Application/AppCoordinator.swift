@@ -5,6 +5,8 @@ enum AppRoute: Hashable {
     case dashboard
     case logWorkout
     case logMeal
+    case editMeal(FoodItemEntity)
+    case editWorkout(ExerciseEntity)
 }
 
 @MainActor
