@@ -11,7 +11,6 @@ struct LogWorkoutView: View {
     
     let exerciseManager = LocalExerciseManager.shared
     
-    // HATA BURADAYDI: Artık "exercises" olarak doğru şekilde çağırılıyor.
     var muscleGroups: [String] {
         let allGroups = exerciseManager.exercises.map { $0.mainMuscle }
         let uniqueGroups = Array(Set(allGroups)).sorted()
@@ -35,7 +34,6 @@ struct LogWorkoutView: View {
             
             List(filteredExercises) { exercise in
                 Button(action: {
-                    // Artık direkt kaydetmiyoruz, detay ekranını (çoklu set) açıyoruz
                     selectedExercise = exercise
                 }) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -62,7 +60,6 @@ struct LogWorkoutView: View {
                 Button("Cancel") { coordinator.navigate(to: .dashboard) }
             }
         }
-        // SEÇİLEN HAREKET İÇİN DETAY EKRANI (SHEET)
         .sheet(item: $selectedExercise) { exercise in
             ExerciseDetailSheet(
                 exercise: exercise,
@@ -81,21 +78,18 @@ struct ExerciseDetailSheet: View {
     
     @Environment(\.dismiss) var dismiss
     
-    // UI'da listelemek için geçici bir yapı
     struct TempSet: Identifiable {
         let id = UUID()
         var reps: String = ""
         var weight: String = ""
     }
     
-    // Uygulama her zaman en az 1 set satırı ile başlar
     @State private var loggedSets: [TempSet] = [TempSet()]
     
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("LOG SETS")) {
-                    // Dinamik Set Listesi
                     ForEach(loggedSets.indices, id: \.self) { index in
                         HStack {
                             Text("Set \(index + 1)")
@@ -122,24 +116,24 @@ struct ExerciseDetailSheet: View {
                                 .background(Color(UIColor.secondarySystemBackground))
                                 .cornerRadius(8)
                             
-                            // 1'den fazla set varsa silme butonu göster
                             if loggedSets.count > 1 {
                                 Button(action: {
                                     loggedSets.remove(at: index)
                                 }) {
                                     Image(systemName: "minus.circle.fill")
                                         .foregroundColor(.red)
+                                        .font(.title3)
                                 }
-                                .padding(.leading, 4)
+                                // 🌟 İŞTE SİHİRLİ DOKUNUŞ: Tıklamayı sadece butona sınırla!
+                                .buttonStyle(.borderless)
+                                .padding(.leading, 8)
                             }
                         }
                     }
                 }
                 
-                // Yeni Set Ekleme Butonu
                 Section {
                     Button(action: {
-                        // Yeni set ekle (Bir önceki setin değerlerini kopyalar)
                         let lastSet = loggedSets.last
                         loggedSets.append(TempSet(reps: lastSet?.reps ?? "", weight: lastSet?.weight ?? ""))
                     }) {
